@@ -10,77 +10,86 @@
 
 using std::cout, std::endl;
 
-template <typename... T>
-constexpr auto sq(const T&... x) noexcept {
-  return ( (x*x) + ... );
+template <typename Outline>
+void RemoveColinearPoints(
+    Outline& outline,
+    double angleTolerance = 1 // degrees
+) {
+  const size_t nPoints = outline.size();
+  if (nPoints < 4)
+    return;
+
+  // convert angle tolerance to cosine tolerance
+  static const double pi = 3.14159265358979323846;
+  angleTolerance = std::cos(pi - (pi/180.) * angleTolerance);
+  TEST(angleTolerance)
+
+  size_t
+    i0 = 0, // point to which the current point is moved
+    i1 = nPoints - 1, // preceeding point
+    i2 = 0, // point currently being inspected
+    i3 = 1; // following point
+
+  while (i2 < nPoints) {
+    double
+      x1 = outline[i1][0], y1 = outline[i1][1],
+      x2 = outline[i2][0], y2 = outline[i2][1],
+      x3 = outline[i3][0], y3 = outline[i3][1];
+
+    cout << i2 << ": " << x2 << ", " << y2 << endl;
+
+      // make point 2 the origin
+      x1 -= x2; y1 -= y2;
+      x3 -= x2; y3 -= y2;
+
+      double cos = x1*x3 + y1*y3; // dot product of vectors 1 and 3
+      TEST(cos)
+      if (cos >= 0)
+        goto keep;
+
+      cos /= std::sqrt((x1*x1 + y1*y1) * (x3*x3 + y3*y3));
+      TEST(cos)
+
+      if (cos < angleTolerance)
+        goto remove;
+
+keep:
+      if (i0 < i2) {
+        outline[i0] = std::move(outline[i2]);
+      }
+      ++i0;
+      i1 = i2;
+remove:
+      ++i2;
+      if (++i3 == nPoints) {
+        i3 = 0;
+      }
+  }
+
+  outline.resize(i0);
 }
 
-struct Point { double x, y; };
-
-constexpr Point operator+(const Point& a, const Point& b) noexcept {
-  return { a.x + b.x, a.y + b.y };
-}
-constexpr Point operator-(const Point& a, const Point& b) noexcept {
-  return { a.x - b.x, a.y - b.y };
-}
-constexpr double operator*(const Point& a, const Point& b) noexcept {
-  return a.x * b.x + a.y * b.y;
-}
-constexpr double operator^(const Point& a, const Point& b) noexcept {
-  return a.x * b.y - a.y * b.x;
-}
+#include <vector>
+#include <array>
 
 int main() {
   std::ios_base::sync_with_stdio(false);
 
   // must be CCW
-  const Point outline[] {
+  std::vector<std::array<double, 2>> outline {
     { 0, 0 },
     { 2, 0 },
+    { 2.01, 1 },
     { 2, 2 },
-    { 1, 2.09 },
+    { 1, 2.001 },
     { 0, 2 },
     { 0, 1.5 },
     { 0, 1.0 },
   };
-  const size_t nPoints = std::size(outline);
 
-  // TEST(nPoints);
+  RemoveColinearPoints(outline, 1);
 
-  bool* const mask = new bool[nPoints];
-
-  // Is there a way to loop to help the processor with branch prediction?
-  for (size_t a = 0; a < nPoints; ++a) {
-    size_t b = a + 1, c = a + 2;
-    if (c >= nPoints) {
-      c -= nPoints;
-      if (b >= nPoints) {
-        b -= nPoints;
-      }
-    }
-    // TEST(a)
-    // TEST(b)
-    // TEST(c)
-
-    Point v[] {
-      outline[a] - outline[b],
-      outline[c] - outline[b]
-    };
-
-    const double mag = std::sqrt(sq(v[0]) * sq(v[1]));
-
-    const double cross = v[0] * v[1];
-    const double cos = cross / mag;
-    const double wedge = v[0] ^ v[1];
-    const double sin = wedge / mag;
-
-    TEST(cos)
-    TEST(sin)
-
-    mask[b] = cos < 0 && std::abs(sin) < 0.2;
-  }
-
-  for (size_t i = 0; i < nPoints; ++i) {
-    TEST(mask[i])
+  for (const auto& p : outline) {
+    cout << p[0] << "  " << p[1] << '\n';
   }
 }
